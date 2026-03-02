@@ -1,55 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+
+const BACKEND_URL = process.env.BACKEND_URL || 'https://motion-saas-backend-production.up.railway.app';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { videoId: string } }
 ) {
   try {
-    const sessionId = request.cookies.get('session_id')?.value;
     const { videoId } = params;
 
-    if (!sessionId) {
-      return NextResponse.json(
-        { error: 'No session' },
-        { status: 401 }
-      );
-    }
+    // Forward to Railway backend
+    const backendRes = await fetch(`${BACKEND_URL}/api/status/${videoId}`);
+    const data = await backendRes.json();
 
-    // Get video with user verification
-    const { data: video, error } = await supabaseAdmin
-      .from('videos')
-      .select(`
-        *,
-        users!inner(session_id)
-      `)
-      .eq('id', videoId)
-      .eq('users.session_id', sessionId)
-      .single();
-
-    if (error || !video) {
+    if (!backendRes.ok) {
       return NextResponse.json(
-        { error: 'Video not found' },
-        { status: 404 }
+        { error: data.error || 'Video not found' },
+        { status: backendRes.status }
       );
     }
 
     return NextResponse.json({
-      video: {
-        id: video.id,
-        status: video.status,
-        prompt: video.prompt,
-        conceptTitle: video.art_direction?.concept?.slice(0, 50) + '...' || null,
-        visualStyle: video.visual_style,
-        videoUrl: video.video_url,
-        thumbnailUrl: video.thumbnail_url,
-        totalDuration: video.total_duration,
-        errorMessage: video.error_message,
-        createdAt: video.created_at,
-        completedAt: video.completed_at,
-      },
+      status: data.status,
+      videoUrl: data.videoUrl,
+      audioUrl: data.audioUrl,
+      script: data.script,
+      errorMessage: data.errorMessage,
+      progress: data.progress,
     });
 
   } catch (error: any) {

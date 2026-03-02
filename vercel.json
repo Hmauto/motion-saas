@@ -2,9 +2,11 @@
   "buildCommand": "npm run build",
   "framework": "nextjs",
   "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "https://begldcqylfvowqzrcgmp.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZ2xkY3F5bGZ2b3dxenJjZ21wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDkyNTA0MDAsImV4cCI6MjAyNDgyNjQwMH0.example",
-    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJlZ2xkY3F5bGZ2b3dxenJjZ21wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwOTI1MDQwMCwiZXhwIjoyMDI0ODI2NDAwfQ.example",
-    "ELEVENLABS_API_KEY": "sk_3775c263e9c1e79971a05efe2f91f9bc900715c5221fee7e"
+    "NEXT_PUBLIC_SUPABASE_URL": "https://kjkvsiegfzywrtsptgpl.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_rJcm2BYT9xrWcB9sIQTJZA_fHxBsRwl",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtqa3ZzaWVnZnp5d3J0c3B0Z3BsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQ4MzgwMywiZXhwIjoyMDg4MDU5ODAzfQ.mEQVJEwNJSeMnkQK1de6ACzKOjPNXuVdHjxab0rMuoU",
+    "ELEVENLABS_API_KEY": "sk_3775c263e9c1e79971a05efe2f91f9bc900715c5221fee7e",
+    "AI_API_KEY": "sk-3775c263e9c1e79971a05efe2f91f9bc900715c5221fee7e",
+    "AI_API_URL": "https://api.moonshot.cn/v1"
   }
 }

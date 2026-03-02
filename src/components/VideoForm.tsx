@@ -1,10 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, Loader2, Video, Coins } from 'lucide-react';
+import { Sparkles, Loader2, Video, Coins, Mic } from 'lucide-react';
+
+interface Voice {
+  id: string;
+  name: string;
+  category?: string;
+}
 
 interface VideoFormProps {
-  onSubmit: (prompt: string) => void;
+  onSubmit: (prompt: string, voiceId: string) => void;
   isLoading: boolean;
   credits: number;
 }
@@ -12,11 +18,34 @@ interface VideoFormProps {
 export function VideoForm({ onSubmit, isLoading, credits }: VideoFormProps) {
   const [prompt, setPrompt] = useState('');
   const [charCount, setCharCount] = useState(0);
+  const [voiceId, setVoiceId] = useState('Adam');
+  const [voices, setVoices] = useState<Voice[]>([]);
+
+  useEffect(() => {
+    // Fetch available voices
+    fetch('/api/voices')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setVoices(data);
+        }
+      })
+      .catch(() => {
+        // Fallback voices
+        setVoices([
+          { id: 'Adam', name: 'Adam', category: 'premade' },
+          { id: 'Bella', name: 'Bella', category: 'premade' },
+          { id: 'Antoni', name: 'Antoni', category: 'premade' },
+          { id: 'Josh', name: 'Josh', category: 'premade' },
+          { id: 'Rachel', name: 'Rachel', category: 'premade' },
+        ]);
+      });
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim().length >= 10 && credits > 0) {
-      onSubmit(prompt.trim());
+      onSubmit(prompt.trim(), voiceId);
     }
   };
 
@@ -29,7 +58,7 @@ export function VideoForm({ onSubmit, isLoading, credits }: VideoFormProps) {
             Create Your Video
           </h2>
           <p className="text-gray-400">
-            Describe what you want, our AI will create motion graphics
+            Describe what you want, our AI will create motion graphics with voiceover
           </p>
         </div>
 
@@ -60,6 +89,31 @@ export function VideoForm({ onSubmit, isLoading, credits }: VideoFormProps) {
           </div>
         </div>
 
+        {/* Voice Selection */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm text-gray-400">
+            <Mic className="w-4 h-4" />
+            Voice
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {voices.map((voice) => (
+              <button
+                key={voice.id}
+                type="button"
+                onClick={() => setVoiceId(voice.id)}
+                disabled={isLoading}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  voiceId === voice.id
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                } disabled:opacity-50`}
+              >
+                {voice.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Submit Button */}
         <button
           type="submit"
@@ -86,7 +140,7 @@ export function VideoForm({ onSubmit, isLoading, credits }: VideoFormProps) {
 
         {/* Info */}
         <p className="text-center text-xs text-gray-500">
-          Each video takes 2-3 minutes to generate • 1080x1920 vertical format
+          Each video takes 2-3 minutes • AI voiceover included • 1080x1920 vertical format
         </p>
       </form>
     </div>

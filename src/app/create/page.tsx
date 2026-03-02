@@ -48,17 +48,23 @@ export default function CreatePage() {
     localStorage.setItem('motion_videos', JSON.stringify(updated));
   };
 
-  const handleSubmit = async (prompt: string) => {
+  const handleSubmit = async (prompt: string, voiceId: string) => {
     setIsLoading(true);
     
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, voiceId }),
       });
 
       const data = await res.json();
+      console.log('API Response:', data);
+
+      if (!res.ok) {
+        alert(`Error: ${data.error || data.message || 'Unknown error'}\n\nDetails: ${JSON.stringify(data, null, 2)}`);
+        return;
+      }
 
       if (data.success) {
         setCredits(data.creditsRemaining);
@@ -76,11 +82,11 @@ export default function CreatePage() {
         // Start polling for status
         pollStatus(data.videoId);
       } else {
-        alert(data.error || 'Failed to create video');
+        alert(`Failed: ${data.error || 'Unknown error'}\n\nDetails: ${JSON.stringify(data, null, 2)}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Submit error:', error);
-      alert('Something went wrong');
+      alert(`Network Error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
