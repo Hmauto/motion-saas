@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { VideoForm } from '@/components/VideoForm';
 import { VideoCard } from '@/components/VideoCard';
-import { Video, Coins } from 'lucide-react';
+import { Video, Coins, AlertCircle } from 'lucide-react';
 
 interface VideoJob {
   id: string;
@@ -18,6 +18,7 @@ export default function CreatePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [videos, setVideos] = useState<VideoJob[]>([]);
   const [currentJob, setCurrentJob] = useState<VideoJob | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Load credits on mount
   useEffect(() => {
@@ -29,16 +30,21 @@ export default function CreatePage() {
     try {
       const res = await fetch('/api/credits');
       const data = await res.json();
-      setCredits(data.credits);
+      setCredits(data.credits || 5);
     } catch (error) {
       console.error('Failed to fetch credits:', error);
+      setCredits(5); // Default to 5 on error
     }
   };
 
   const loadVideos = () => {
     const saved = localStorage.getItem('motion_videos');
     if (saved) {
-      setVideos(JSON.parse(saved));
+      try {
+        setVideos(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to load videos:', e);
+      }
     }
   };
 
@@ -50,6 +56,7 @@ export default function CreatePage() {
 
   const handleSubmit = async (prompt: string, voiceId: string) => {
     setIsLoading(true);
+    setError(null);
     
     try {
       const res = await fetch('/api/generate', {
@@ -62,7 +69,7 @@ export default function CreatePage() {
       console.log('API Response:', data);
 
       if (!res.ok) {
-        alert(`Error: ${data.error || data.message || 'Unknown error'}\n\nDetails: ${JSON.stringify(data, null, 2)}`);
+        setError(data.error || 'Failed to generate video. Please try again.');
         return;
       }
 
@@ -82,11 +89,11 @@ export default function CreatePage() {
         // Start polling for status
         pollStatus(data.videoId);
       } else {
-        alert(`Failed: ${data.error || 'Unknown error'}\n\nDetails: ${JSON.stringify(data, null, 2)}`);
+        setError(data.error || 'Something went wrong. Please try again.');
       }
     } catch (error: any) {
       console.error('Submit error:', error);
-      alert(`Network Error: ${error.message}`);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -159,6 +166,20 @@ export default function CreatePage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-12">
+        {/* Error Banner */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <p className="text-red-400 text-sm">{error}</p>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-auto text-red-400 hover:text-red-300"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Left: Form */}
           <div className="space-y-8">

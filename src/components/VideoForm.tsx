@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sparkles, Loader2, Video, Coins, Mic } from 'lucide-react';
-
-interface Voice {
-  id: string;
-  name: string;
-  category?: string;
-}
+import { Sparkles, Loader2, Coins, Mic } from 'lucide-react';
 
 interface VideoFormProps {
   onSubmit: (prompt: string, voiceId: string) => void;
@@ -18,29 +12,7 @@ interface VideoFormProps {
 export function VideoForm({ onSubmit, isLoading, credits }: VideoFormProps) {
   const [prompt, setPrompt] = useState('');
   const [charCount, setCharCount] = useState(0);
-  const [voiceId, setVoiceId] = useState('Adam');
-  const [voices, setVoices] = useState<Voice[]>([]);
-
-  useEffect(() => {
-    // Fetch available voices
-    fetch('/api/voices')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setVoices(data);
-        }
-      })
-      .catch(() => {
-        // Fallback voices
-        setVoices([
-          { id: 'Adam', name: 'Adam', category: 'premade' },
-          { id: 'Bella', name: 'Bella', category: 'premade' },
-          { id: 'Antoni', name: 'Antoni', category: 'premade' },
-          { id: 'Josh', name: 'Josh', category: 'premade' },
-          { id: 'Rachel', name: 'Rachel', category: 'premade' },
-        ]);
-      });
-  }, []);
+  const voiceId = 'Adam'; // Default voice, auto-selected
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +30,7 @@ export function VideoForm({ onSubmit, isLoading, credits }: VideoFormProps) {
             Create Your Video
           </h2>
           <p className="text-gray-400">
-            Describe what you want, our AI will create motion graphics with voiceover
+            Describe what you want, our AI will create motion graphics with AI voiceover
           </p>
         </div>
 
@@ -89,29 +61,10 @@ export function VideoForm({ onSubmit, isLoading, credits }: VideoFormProps) {
           </div>
         </div>
 
-        {/* Voice Selection */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-400">
-            <Mic className="w-4 h-4" />
-            Voice
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {voices.map((voice) => (
-              <button
-                key={voice.id}
-                type="button"
-                onClick={() => setVoiceId(voice.id)}
-                disabled={isLoading}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  voiceId === voice.id
-                    ? 'bg-pink-500 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                } disabled:opacity-50`}
-              >
-                {voice.name}
-              </button>
-            ))}
-          </div>
+        {/* Voice Info (Auto-selected) */}
+        <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+          <Mic className="w-4 h-4" />
+          <span>AI Voice: Adam (auto-selected)</span>
         </div>
 
         {/* Submit Button */}
