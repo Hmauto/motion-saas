@@ -11,8 +11,8 @@ export async function initStorage() {
   // Create buckets if they don't exist
   const { data: buckets } = await supabaseAdmin.storage.listBuckets();
   
-  const hasVideos = buckets?.some(b => b.name === STORAGE_BUCKET);
-  const hasAudio = buckets?.some(b => b.name === AUDIO_BUCKET);
+  const hasVideos = buckets?.some((b: { name: string }) => b.name === STORAGE_BUCKET);
+  const hasAudio = buckets?.some((b: { name: string }) => b.name === AUDIO_BUCKET);
 
   if (!hasVideos) {
     await supabaseAdmin.storage.createBucket(STORAGE_BUCKET, {
