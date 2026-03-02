@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin, User, Video } from '@/lib/supabase';
-import { spawnPromptAnalyzer } from '@/lib/subagents';
+import { supabaseAdmin } from '@/lib/supabase';
+import { runVideoPipeline } from '@/lib/pipeline';
 import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 // Get or create user based on session/IP
-async function getOrCreateUser(sessionId: string, ip: string, email?: string): Promise<User> {
+async function getOrCreateUser(sessionId: string, ip: string, email?: string) {
   // Try to find existing user by session
   const { data: existingSession } = await supabaseAdmin
     .from('users')
     .select('*')
-    .eq('session_ip', `${sessionId}:${ip}`)
+    .eq('session_id', sessionId)
     .single();
 
   if (existingSession) {
@@ -25,13 +27,30 @@ async function getOrCreateUser(sessionId: string, ip: string, email?: string): P
       .single();
 
     if (existingEmail) {
-      // Update session IP
+      // Update session
       await supabaseAdmin
         .from('users')
-        .update({ session_ip: `${sessionId}:${ip}` })
+        .update({ session_id: sessionId, ip_address: ip })
         .eq('id', existingEmail.id);
-      return existingEmail;
+      return { ...existingEmail, session_id: sessionId };
     }
+  }
+
+  // Check if IP already used (prevent multiple free accounts)
+  const { data: existingIp } = await supabaseAdmin
+    .from('users')
+    .select('*')
+    .eq('ip_address', ip)
+    .eq('is_anonymous', true)
+    .single();
+
+  if (existingIp && !email) {
+    // Reuse existing IP user
+    await supabaseAdmin
+      .from('users')
+      .update({ session_id: sessionId })
+      .eq('id', existingIp.id);
+    return { ...existingIp, session_id: sessionId };
   }
 
   // Create new user with free credits
@@ -40,9 +59,11 @@ async function getOrCreateUser(sessionId: string, ip: string, email?: string): P
   const { data: newUser, error } = await supabaseAdmin
     .from('users')
     .insert({
-      email,
+      email: email || null,
+      session_id: sessionId,
+      ip_address: ip,
       credits,
-      session_ip: `${sessionId}:${ip}`,
+      is_anonymous: !email,
     })
     .select()
     .single();
@@ -53,41 +74,11 @@ async function getOrCreateUser(sessionId: string, ip: string, email?: string): P
   await supabaseAdmin.from('credit_transactions').insert({
     user_id: newUser.id,
     amount: credits,
-    type: 'free',
+    type: email ? 'login_bonus' : 'free_signup',
     description: `Initial ${credits} free credits`,
   });
 
   return newUser;
-}
-
-// Deduct credit
-async function deductCredit(userId: string): Promise<boolean> {
-  const { data: user } = await supabaseAdmin
-    .from('users')
-    .select('credits')
-    .eq('id', userId)
-    .single();
-
-  if (!user || user.credits < 1) {
-    return false;
-  }
-
-  const { error } = await supabaseAdmin
-    .from('users')
-    .update({ credits: user.credits - 1 })
-    .eq('id', userId);
-
-  if (error) return false;
-
-  // Log transaction
-  await supabaseAdmin.from('credit_transactions').insert({
-    user_id: userId,
-    amount: -1,
-    type: 'usage',
-    description: 'Video generation',
-  });
-
-  return true;
 }
 
 export async function POST(request: NextRequest) {
@@ -104,10 +95,12 @@ export async function POST(request: NextRequest) {
 
     // Get session and IP
     const sessionId = request.cookies.get('session_id')?.value || crypto.randomUUID();
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+               request.headers.get('x-real-ip') || 
+               'unknown';
 
     // Get or create user
-    const user = await getOrCreateUser(sessionId, ip as string, email);
+    const user = await getOrCreateUser(sessionId, ip, email);
 
     // Check credits
     if (user.credits < 1) {
@@ -118,13 +111,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Deduct credit
-    const deducted = await deductCredit(user.id);
-    if (!deducted) {
+    const { error: creditError } = await supabaseAdmin
+      .from('users')
+      .update({ credits: user.credits - 1 })
+      .eq('id', user.id);
+
+    if (creditError) {
       return NextResponse.json(
         { error: 'Failed to deduct credit' },
         { status: 500 }
       );
     }
+
+    // Log transaction
+    await supabaseAdmin.from('credit_transactions').insert({
+      user_id: user.id,
+      amount: -1,
+      type: 'video_generation',
+      description: 'Video generation started',
+    });
 
     // Create video record
     const { data: video, error: videoError } = await supabaseAdmin
@@ -134,44 +139,24 @@ export async function POST(request: NextRequest) {
         session_id: sessionId,
         prompt: prompt.trim(),
         status: 'pending',
+        credits_used: 1,
       })
       .select()
       .single();
 
     if (videoError) throw videoError;
 
-    // Start sub-agent workflow
-    // Step 1: Analyze prompt
-    const analysisResult = await spawnPromptAnalyzer(video.id, prompt);
-    
-    if (!analysisResult.success) {
-      await supabaseAdmin
-        .from('videos')
-        .update({ status: 'failed' })
-        .eq('id', video.id);
-      
-      return NextResponse.json(
-        { error: 'Failed to analyze prompt' },
-        { status: 500 }
-      );
-    }
+    // Start pipeline in background (don't await)
+    runVideoPipeline({ videoId: video.id, prompt: prompt.trim() })
+      .catch(err => console.error('Pipeline error:', err));
 
-    // Update video with analysis
-    await supabaseAdmin
-      .from('videos')
-      .update({
-        status: 'analyzing',
-        art_direction: { analysis: analysisResult.data },
-      })
-      .eq('id', video.id);
-
-    // Return response
+    // Return response immediately
     const response = NextResponse.json({
       success: true,
       videoId: video.id,
-      status: 'analyzing',
+      status: 'pending',
       creditsRemaining: user.credits - 1,
-      estimatedTime: '2-3 minutes',
+      estimatedTime: '3-5 minutes',
     });
 
     // Set session cookie if not exists
@@ -180,15 +165,16 @@ export async function POST(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 30, // 30 days
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
       });
     }
 
     return response;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Generate error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
